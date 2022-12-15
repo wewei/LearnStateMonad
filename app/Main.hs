@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Lib ( tokenize )
+import Lib ( tokenize, calculate )
 
 main :: IO ()
-main = print $ tokenize "(1 + 2)/ 3"
+main = interact $ unlines . fmap (show . calculate . tokenize) . lines
