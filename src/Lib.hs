@@ -5,9 +5,10 @@ module Lib
     ( Opr
     , Token
     , tokenize
+    -- , calculate
     ) where
 
-import Control.Monad.State ( State, state, evalState, execState)
+import Control.Monad.State.Lazy ( State, state, evalState, execState, get, put )
 import Control.Monad.Loops ( iterateUntilM )
 import Data.Char ( isDigit, digitToInt )
 
@@ -64,18 +65,31 @@ call Div x y = Right $ x `div` y
 
 
 shift :: Token -> State CalculatorState ()
-shift t = state $ ((), ) . \case
-    Left err -> Left err
-    Right ts -> Right $ t:ts
+-- shift t = state $ ((), ) . \case
+--     Left err -> Left err
+--     Right ts -> Right $ t:ts
+shift t = do
+    st <- get
+    put $ fmap (t:) st
+    
 
 reduce :: State CalculatorState ()
-reduce = state $ ((), ) . \case
-    Left err -> Left err
-    Right ts -> case ts of
-        (RBracket:NumToken x:LBracket:rs)      -> (: rs) . NumToken <$> Right x
-        (NumToken y:OprToken op:NumToken x:rs) -> (: rs) . NumToken <$> call op x y
+reduce = do
+    st <- get
+    put $ st >>= \case
+        (RBracket:NumToken x:LBracket:rs)      -> Right $ NumToken x : rs
+        (NumToken y:OprToken op:NumToken x:rs) -> do z <- call op x y; Right $ NumToken z : rs
         _                                      -> Left $ CalculatorError "Illegal reduction"
+
+finalize :: State CalculatorState (Either CalculatorError Int)
+finalize = do
+    st <- get
+    return $ st >>= \case
+        [NumToken x] -> Right x
+        _            -> Left $ CalculatorError "Non-terminated expression"
+
 
 -- calculate :: TokenizerState -> CalculatorState
 -- calculate (Left err) = Left err
 -- calculate (Right ts) = case ts of
+
